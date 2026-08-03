@@ -1,91 +1,85 @@
-# GenAI Resume Parser 🎯
+# GenAI Resume Parser
 
-Ever spent hours tailoring your resume for a job, only to guess whether it'll actually clear the ATS or catch a recruiter's eye? Yeah, me too. That's why I built this.
+I built this because I was tired of blindly tailoring my resume for every job posting with no real idea if it actually matched what the role wanted. So I made a tool that tells me straight up — here's your match score, here's what you're missing, and here's a plan to fix it before the interview.
 
-**GenAI Resume Parser** is a full-stack app that takes your resume and a job description, and tells you — honestly — how well you match up. Then it goes a step further: it builds you an interview prep plan and can spit out a tailored, recruiter-ready resume PDF, all powered by Google's Gemini LLM.
-
-No black-box scoring. No vague "72% match!" with zero explanation. Just a genuinely useful breakdown of what's working, what's missing, and how to close the gap.
+It's a full-stack app (React + Express + MongoDB) that uses Google's Gemini LLM to parse a resume against a job description, score the match, generate an interview prep plan, and even render a tailored resume as a PDF.
 
 ---
 
-## What it actually does
+## What it does
 
-- **Match scoring** — paste a job description and your resume (or a quick self-description), and get a real score with reasoning behind it
-- **Interview strategy generation** — a custom prep plan built from the actual overlap (and gaps) between your profile and the role
-- **Tailored resume PDFs** — rendered server-side via headless Chromium, so what you download actually looks like a resume, not a text dump
-- **Structured, reliable AI output** — the LLM doesn't just "chat" back at you; every response is validated against a schema before it ever reaches the frontend
+- Takes a job description + your resume (or just a quick self-description) and gives you a match score with actual reasoning, not just a random percentage
+- Generates a full interview prep plan — technical questions, behavioral questions, and a day-by-day roadmap — based on the specific gaps between your profile and the role
+- Renders a tailored, recruiter-ready resume as a PDF using headless Chromium
+- Every AI response is schema-validated before it hits the frontend, so I'm not just trusting the model to "behave"
 
-### What it looks like
+### Input screen
 
 ![Create Your Custom Interview Plan UI](./interview-plan-ui.png)
 
-This is the entry point — drop in the job description, then either upload your resume or just describe your background in plain English. The app takes it from there.
+You paste the JD on the left, and either upload a resume or describe yourself on the right. That's it, that's the whole input.
 
-### The output — where it gets useful
-
-Once the AI does its thing, you land on a full breakdown: a match score, the specific skill gaps holding you back, and a prep plan built around them.
+### What you get back
 
 ![Technical Questions with Match Score and Skill Gaps](./technical-questions-ui.png)
 
-Every question is generated against your actual profile — not generic "tell me about yourself" filler. Notice the **Match Score (68%)** and **Skill Gaps** panel on the right, calling out exactly where the JD and your background diverge.
+This is the part I use the most — technical questions generated specifically off my profile and the JD, plus a match score and skill gap breakdown on the right so I know exactly what to go study.
 
 ![Behavioral Questions with Intention and Model Answer](./behavioral-questions-ui.png)
 
-This is the part I'm most proud of. Each behavioral question comes with an **Intention** (why the interviewer is likely asking this) and a **Model Answer** grounded in your real experience — not a canned STAR template, but one that references your actual projects and internships.
+For behavioral questions I added an "Intention" (why they're probably asking this) and a model answer that references my actual projects, not some generic STAR-method filler.
 
 ![5-Day Preparation Road Map](./roadmap-ui.png)
 
-And finally, a day-by-day prep roadmap that sequences what to study based on the gaps identified — so you're not just told what you're missing, you're told what to do about it, in what order.
+And a 5-day roadmap that sequences what to study based on the gaps it found, so I'm not just told what's missing — I get told what to do about it, in order.
 
 ---
 
-## Under the hood
+## Stack
 
-**Stack:**
 - **Frontend:** React
 - **Backend:** Express / Node.js
-- **Database:** MongoDB
+- **DB:** MongoDB
 - **AI:** Google Gemini
 - **PDF rendering:** Puppeteer (headless Chromium)
-- **Auth:** JWT with a token blacklist for logout/revocation
-- **Validation:** Zod + `zod-to-json-schema`
+- **Auth:** JWT + token blacklist for logout/revocation
+- **Validation:** Zod + zod-to-json-schema
 
-**The interesting engineering bit:**
-LLMs are probabilistic by nature — ask the same question twice and you might get two differently-shaped answers. That's a problem when your frontend expects a consistent JSON structure to render.
+## The core engineering problem I had to solve
 
-The fix here: every prompt to Gemini is paired with a **Zod schema**, converted via `zod-to-json-schema`, and passed in as a structured output constraint. Gemini's JSON mode then returns data that *has* to match that shape. In practice, this turns a probabilistic chat model into something that behaves like a predictable, typed API endpoint.
+LLMs are probabilistic — ask the same thing twice and you can get differently shaped responses. That's a problem when my frontend needs a consistent JSON structure to render into UI.
 
-Worth being clear on: **this project doesn't train or fine-tune any models.** It's an application built *on top of* a foundation model, using prompt engineering and structured output constraints to make it production-usable. That distinction — "using GenAI" vs. "building GenAI" — matters a lot when explaining the project to others.
+So every prompt to Gemini is paired with a Zod schema, converted through zod-to-json-schema, and passed in as a structured output constraint. Gemini's JSON mode is forced to return data matching that shape. Basically I turned a chat model into something that behaves like a predictable, typed API.
 
----
-
-## Known rough edges
-
-Nobody's codebase is perfect, and I'd rather list these than pretend they don't exist:
-
-- **IDOR on the PDF generation endpoint** — currently missing an ownership check, so it needs a fix before this touches real user data in production
-- **No retry/fallback logic** if the AI response fails schema validation — right now a malformed response just fails instead of retrying or degrading gracefully
-
-Both are on the radar for the next pass.
+One thing I always make sure to clarify when talking about this project: **I'm not training or fine-tuning any models here.** This is an application built on top of a foundation model — the engineering is in the prompting, the schema constraints, and making an inherently unpredictable API production-usable. Big difference between "using GenAI" and "building GenAI," and I want to be upfront about which one this is.
 
 ---
 
-## Why these design choices
+## Bugs I know about (and haven't fixed yet)
 
-- **MongoDB over a relational DB** — resume/job-description data is naturally document-shaped and doesn't need rigid joins, so schema flexibility won out
-- **JWT + blacklist over sessions** — stateless auth that still supports proper logout/revocation
-- **Puppeteer over PDF libraries** (like PDFKit) — trades some overhead for pixel-perfect, real-CSS resume rendering instead of fighting a limited PDF DSL
-- **Gemini model tier** — picked with an eye toward the cost/latency/quality tradeoff for structured extraction tasks specifically, rather than defaulting to the biggest model available
+- **IDOR on the PDF generation endpoint** — there's no ownership check right now, so technically someone could hit the endpoint for a resume that isn't theirs. Needs fixing before this touches real user data.
+- **No retry/fallback if the AI response fails validation** — if Gemini returns something that doesn't match my schema, it just fails instead of retrying or falling back gracefully.
 
----
-
-## Roadmap
-
-- [ ] Fix the IDOR vulnerability on PDF generation
-- [ ] Add retry/validation fallback for AI response failures
-- [ ] Expand test coverage around schema validation edge cases
-- [ ] Consider rate-limiting on the Gemini calls to control cost at scale
+Leaving these here instead of hiding them because I'd rather be upfront about where the rough edges are.
 
 ---
 
-Built as a hands-on way to actually understand what it takes to ship a GenAI feature end-to-end — not just call an API, but design around its quirks.
+## Why I made these choices
+
+- **MongoDB over a relational DB** — resume and JD data is naturally document-shaped, didn't need rigid joins, so I went with the schema flexibility
+- **JWT + blacklist instead of sessions** — wanted stateless auth but still needed real logout/revocation
+- **Puppeteer over a PDF library like PDFKit** — costs more overhead but I get pixel-perfect, real-CSS resume rendering instead of fighting a limited PDF DSL
+- **Gemini model tier** — picked with cost/latency/quality tradeoffs in mind for structured extraction specifically, not just grabbing the biggest model available
+
+---
+
+## What's next
+
+- [ ] Fix the IDOR bug on PDF generation
+- [ ] Add retry/fallback logic for failed AI validations
+- [ ] More test coverage around schema validation edge cases
+- [ ] Rate-limiting on Gemini calls so cost doesn't get out of hand at scale
+
+---
+
+Built this mainly to actually understand what it takes to ship a GenAI feature end-to-end — not just call an API and hope, but design around how it actually behaves.
